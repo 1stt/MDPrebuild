@@ -1,101 +1,187 @@
 import Tkinter as tk
 from Tkinter import *
+import mpsse_connect as mp
+import numpy as np
 import ttk
 import serial
-import time
 import pprint
 import tkMessageBox
 import serial.tools.list_ports
 import struct
-import ctypes
+# import ctypes
+import time
 ports = list(serial.tools.list_ports.comports())
+portArr = []
 for p in ports:
     print p
-portBeforSub = p
-port = str(portBeforSub)
-port = port[2:6]
-print port
+    portBeforSub = p
+    portIn = str(portBeforSub)
+    if portIn[7] == "'":
+        portIn = portIn[2:7]
+    else:
+        portIn = portIn[2:6]
+    portArr.append(portIn)
+    for x in portArr:
+        print(x)
 set_baudrate = 9600
 set_timeout = 1
+port = portArr[0]
+portValues = portArr[:]
 
 
-class ChannelConfig(ctypes.Structure):
-    _fields_ = [("ClockRate",   ctypes.c_int),
-                ("LatencyTimer", ctypes.c_ubyte),
-                ("Options",     ctypes.c_int)]
+def read_partnumber():
+    mp.init_i2c()
+    mp.i2c_write(0x55, [0x80])
+    partnumber = mp.i2c_read8bytes(0x55)
+    print partnumber
+    # print mp.i2c_read8bytes(0x55)
+    partNum = Entry(frame2)
+    partNum.insert(1, partnumber)
+    partNum.grid(row=10, column=2)
+    mp.close_i2c()
+    return(partnumber)
 
 
-class I2C_TRANSFER_OPTION(object):
-    START_BIT = 0x01
-    STOP_BIT = 0x02
-    BREAK_ON_NACK = 0x04
-    NACK_LAST_BYTE = 0x08
-    FAST_TRANSFER_BYTES = 0x10
-    FAST_TRANSFER_BITS = 0x20
-    FAST_TRANSFER = 0x30
-    NO_ADDRESS = 0x40
+def write_partnumber(partnumber="00000000"):
+    pn = partNum.get()
+    print("########################")
+    print pn
+    print("########################")
+    ord_partnumber = list(map(ord, pn.strip()))
+    print("########################")
+    print ord_partnumber
+    print("########################")
+    reg = [0x80]
+    writeout_to_reg = reg+ord_partnumber
+    print writeout_to_reg
 
-
-def init_i2c():
-    try:
-        close_i2c()
-    except:
-        print "initing i2c"
-    global libMPSSE, chn_count, chn_conf, chn_no, handle, mode
-    libMPSSE = ctypes.cdll.LoadLibrary("C:\\Users\\718080\\Desktop\\MDprebuild\\libMPSSE.dll")
-    chn_count = ctypes.c_int()
-    chn_conf = ChannelConfig(400000, 5, 0)
-    chn_no = 0
-    handle = ctypes.c_void_p()
-    mode = I2C_TRANSFER_OPTION.START_BIT | I2C_TRANSFER_OPTION.STOP_BIT
-
-    libMPSSE.Init_libMPSSE()
-    ret = libMPSSE.I2C_GetNumChannels(ctypes.byref(chn_count))
-    ret = libMPSSE.I2C_OpenChannel(chn_no, ctypes.byref(handle))
-    ret = libMPSSE.I2C_InitChannel(handle, ctypes.byref(chn_conf))
+    ret = mp.i2c_write(0x55, writeout_to_reg)
     return(ret)
 
-
-def close_i2c():
-    ret = 0
-    try:
-        ret = libMPSSE.I2C_CloseChannel(handle)
-        libMPSSE.Cleanup_libMPSSE()
-        ctypes.cdll.FreeLibrary(libMPSSE)
-    except:
-        return 99
-    return(ret)
-
-
-def i2c_write(i2c_addr, i2c_req):
-    values = i2c_req
-    raw = struct.pack("%dB" % len(values), *values)
-    bytes_transfered = ctypes.c_int()
-    buf = ctypes.create_string_buffer(raw, len(raw))
-    ret = libMPSSE.I2C_DeviceWrite(handle, i2c_addr, len(
-        buf), buf, ctypes.byref(bytes_transfered), mode)
-    return(ret)
+# def write_partnumber(partnumber="0x00"):
+#     ord_partnumber = list(map(ord, partnumber.strip()))
+#     print("#####################")
+#     print ord_partnumber
+#     print("#####################")
+#     reg = [0x80]
+#     writeout_to_reg = reg+ord_partnumber
+#     print writeout_to_reg
+#     ret = mp.i2c_write(0x55, writeout_to_reg)
+#     print("#############")
+#     print ret
+#     return(ret)
+# def write_partnumber():
+#     mp.init_i2c()
+#     mp.i2c_write(0x55, [0x80])
+#     deckstatus = mp.i2c_read(0x55)
+#     mp.close_i2c()
+#     return deckstatus.encode('hex')
 
 
-def i2c_read(i2c_addr, datasize=1):
-    values = [0x00]*datasize
-    raw = struct.pack("%dB" % len(values), *values)
-    bytes_transfered = ctypes.c_int()
-    buf = ctypes.create_string_buffer(raw, len(raw))
-    ret = libMPSSE.I2C_DeviceRead(handle, i2c_addr, len(
-        buf), buf, ctypes.byref(bytes_transfered), mode)
-    return(buf.value)
+def read_partnumber1():
+    mp.init_i2c()
+    mp.i2c_write(0x55, [0x80])
+    partnumber = mp.i2c_read8bytes(0x55)
+    # print mp.i2c_read8bytes(0x55)
+    part_Num = Entry(frame1)
+    part_Num.insert(1, partnumber)
+    part_Num.grid(row=6, column=1)
+    mp.close_i2c()
+    return(partnumber)
 
 
-def i2c_read8bytes(i2c_addr, datasize=8):
-    values = [0x00]*datasize
-    raw = struct.pack("%dB" % len(values), *values)
-    bytes_transfered = ctypes.c_int()
-    buf = ctypes.create_string_buffer(raw, len(raw))
-    ret = libMPSSE.I2C_DeviceRead(handle, i2c_addr, len(
-        buf), buf, ctypes.byref(bytes_transfered), mode)
-    #print("I2C_DeviceRead status:",ret, "transfered:",bytes_transfered8)
-    return(buf.value)
+def read_serialnumber():
+    mp.init_i2c()
+    mp.i2c_write(0x55, [0x82])
+    serialnumber = mp.i2c_read8bytes(0x55)
+    serialNum = Entry(frame2)
+    serialNum.insert(1, serialnumber)
+    serialNum.grid(row=11, column=2)
+    mp.close_i2c()
+    return(serialnumber)
+
+
+def read_serialnumber1():
+    mp.init_i2c()
+    mp.i2c_write(0x55, [0x82])
+    serialnumber = mp.i2c_read8bytes(0x55)
+    serialNum = Entry(frame1)
+    serialNum.insert(1, serialnumber)
+    serialNum.grid(row=7, column=1)
+    mp.close_i2c()
+    return(serialnumber)
+
+
+def read_deckstatus():
+    mp.init_i2c()
+    mp.i2c_write(0x55, [0x05])
+    deckstatus = mp.i2c_read(0x55)
+
+    if not(deckstatus):
+        deckstatus = struct.pack('1B', 0x00)
+    mp.close_i2c()
+    return deckstatus.encode('hex')
+
+
+def write_deckstatus(status=0x00):
+    mp.init_i2c()
+    mp.i2c_write(0x55, [0x05, status])
+    deckstatus = mp.i2c_read(0x55)
+    mp.close_i2c()
+    return deckstatus.encode('hex')
+
+
+def read_statusheater():
+    mp.init_i2c()
+    mp.i2c_write(0x55, [0x07])
+    heaterstatus = mp.i2c_read(0x55, 1)
+    input_Heater = Listbox(frame1, height=1)
+    input_Heater.insert(1, heaterstatus)
+    input_Heater.grid(row=4, column=1)
+    print heaterstatus
+    mp.close_i2c()
+
+    return (heaterstatus)
+
+
+def read_heater_status():  # need to check with designer what are in reg 8? cause 97% reg7 showed 248
+    mp.i2c_write(0x55, [0x06])
+    reg6 = mp.i2c_read(0x55)
+    if reg6:
+        heater_status = 'ON'
+    else:
+        heater_status = 'OFF'
+
+    mp.i2c_write(0x55, [0x07])
+    reg7 = mp.i2c_read(0x55)
+    if not(reg7):
+        reg7 = struct.pack('1B', 0x00)
+
+    print struct.unpack('1B', reg7)[0]
+
+    # +0.5 for rounding process only.
+    pwm_percent = int(((struct.unpack('1B', reg7)[0]/256.0)*100.0)+0.5)
+
+   # print 'Heater Status:[',heater_status ,']  heaterPWM = ',pwm_percent,'%'
+    return heater_status, pwm_percent
+
+
+def read_temp():
+    mp.init_i2c()
+    mp.i2c_write(0x55, [0x24, 0x25])
+    temp = mp.i2c_read8bytes(0x55)
+    print temp
+    # print mp.i2c_read8bytes(0x55)
+    temp1 = Entry(frame1)
+    temp1.insert(1, temp)
+    temp1.grid(row=8, column=1)
+    temp2 = Entry(frame1)
+    temp2.insert(1, temp)
+    temp2.grid(row=9, column=1)
+
+    mp.close_i2c()
+    temerature = int(((struct.unpack('1B', temp1)[0]/256.0)*100.0)+0.5)
+    return(temp)
 
 
 def delete():
@@ -168,9 +254,10 @@ def OFF_current(command="OUT0"):
 
 root = tk.Tk()
 root.title('Power Supply')
-root.geometry('800x600')
+root.geometry('900x600')
 number = tk.StringVar()
 
+mp.init_i2c()
 frame = Frame(root, bd=3, padx=10, pady=5, height=500, width=500, relief=GROOVE)
 frame.grid(row=1, column=0, sticky=N)
 frame1 = Frame(root, bd=3, padx=10, pady=5, height=500, width=500, relief=GROOVE)
@@ -184,35 +271,36 @@ Rosa = Label(root, text="ROSA Test(SIC)").grid(row=0, column=0, sticky=W)
 OC_loop = Label(frame, text="Open Close Loop", relief=GROOVE).grid(row=2)
 Label(frame, text="Cycles : ").grid(row=3)
 Label(frame, text="Current Cycle : ").grid(row=4)
-E1 = Entry(frame, width=20).grid(row=3, column=2)
-E2 = Entry(frame, width=20).grid(row=4, column=2)
+E1 = Entry(frame, width=20).grid(row=3, column=1)
+E2 = Entry(frame, width=20).grid(row=4, column=1)
 OC_loop = Label(frame, text="Delay After (ms)", relief=GROOVE).grid(row=5)
 Label(frame, text="Open(ms) : ").grid(row=6)
 Label(frame, text="Close(ms) : ").grid(row=7)
-E1 = Entry(frame, width=20).grid(row=6, column=2)
-E2 = Entry(frame, width=20).grid(row=7, column=2)
+E1 = Entry(frame, width=20).grid(row=6, column=1)
+E2 = Entry(frame, width=20).grid(row=7, column=1)
 Start = tk.Button(frame, text="Start")
-Start.grid(row=8, column=1, columnspan=2, sticky=tk.W+tk.E+tk.N+tk.S)
+Start.grid(row=8, column=1, columnspan=1, sticky=W+E+N+S)
 
 
 Sic = Label(root, text="SIC").grid(row=0, column=1, sticky=W)
 Pic = Label(frame1, text="PIC Rev : ").grid(row=2)
-input_Pic = Entry(frame1).grid(row=2, column=1)
-MiniDeck = Label(frame1, text="Mini-Dack Power : ").grid(row=3)
-input_MD = Entry(frame1).grid(row=3, column=1)
+input_Pic = Listbox(frame1, height=1).grid(row=2, column=1)
+MiniDeck = Label(frame1, text="Mini-Deck Power : ").grid(row=3)
+input_MD = Listbox(frame1, height=1).grid(row=3, column=1)
 Heater = Label(frame1, text="Heater : ").grid(row=4)
-input_Heater = Entry(frame1).grid(row=4, column=1)
+input_Heater = Listbox(frame1, height=1).grid(row=4, column=1)
 PMW = Label(frame1, text="PMW % : ").grid(row=5)
-input_PMW = Entry(frame1).grid(row=5, column=1)
+input_PMW = Listbox(frame1, height=1).grid(row=5, column=1)
 Part_num = Label(frame1, text="Part Number : ").grid(row=6)
-input_Partnum = Entry(frame1).grid(row=6, column=1)
+input_Partnum = Listbox(frame1, height=1).grid(row=6, column=1)
 Serial_num = Label(frame1, text="Serial Number : ").grid(row=7)
-input_Serialnum = Entry(frame1).grid(row=7, column=1)
+input_Serialnum = Listbox(frame1, height=1).grid(row=7, column=1)
 T1 = Label(frame1, text="T1 : ").grid(row=8)
-input_T1 = Entry(frame1).grid(row=8, column=1)
+input_T1 = Listbox(frame1, height=1).grid(row=8, column=1)
 T2 = Label(frame1, text="T2 : ").grid(row=9)
-input_T2 = Entry(frame1).grid(row=9, column=1)
-Update = tk.Button(frame1, text="Update")
+input_T2 = Listbox(frame1, height=1).grid(row=9, column=1)
+Update = tk.Button(frame1, text="Update", command=lambda: [
+    read_statusheater(), read_partnumber1(), read_serialnumber1(), read_temp()])
 Update.grid(row=10, column=1, columnspan=1, sticky=W+E+N+S)
 
 Label(frame1, text="Current").grid(row=2, column=2, columnspan=1)
@@ -252,14 +340,18 @@ cancelButton.grid(row=8, column=4, columnspan=2, sticky=W)
 SerialP_num = Label(frame2, text="Serial/Part Number", relief=GROOVE).grid(row=9)
 Label(frame2, text="Part Number : ").grid(row=10)
 Label(frame2, text="Serial Number : ").grid(row=11)
-E1 = Entry(frame2, width=20).grid(row=10, column=2)
-E2 = Entry(frame2, width=20).grid(row=11, column=2)
-Set = Button(frame2, text="SET", width=10)
+partNum = Entry(frame2)
+partNum.grid(row=10, column=2)
+serialNum = Entry(frame2)
+serialNum.grid(row=11, column=2)
+Set = Button(frame2, text="SET", width=10, command=write_partnumber)
 Set.grid(row=12, column=0, columnspan=2, sticky=E)
-Get = Button(frame2, text="GET", width=10)
+Get = Button(frame2, text="GET", width=10, command=lambda: [read_partnumber(), read_serialnumber()])
 Get.grid(row=12, column=1, columnspan=2, sticky=W)
 
 PowerSupply = Label(frame3, text="Power Supply", relief=GROOVE).grid(row=0)
+# comboExample = ttk.Combobox(frame3, values=portValues)
+# comboExample.grid(row=0, column=1, columnspan=1, sticky=W+E+N+S)
 Label(frame3, text="Supply ID : ").grid(row=1)
 tk.Label(frame3, text="Voltage").grid(row=2)
 tk.Label(frame3, text="Current").grid(row=3)
@@ -269,10 +361,10 @@ E2 = tk.Entry(frame3, width=20)
 E1.grid(row=2, column=1)
 E2.grid(row=3, column=1)
 listbox = tk.Listbox(frame3, height=2)
-vOUT = allOutput()
-iOut = output_current()
-listbox.insert(1, vOUT)
-listbox.insert(2, iOut)
+# vOUT = allOutput()
+# iOut = output_current()
+# listbox.insert(1, vOUT)
+# listbox.insert(2, iOut)
 listbox.grid(row=4, column=1)
 ON = tk.Button(frame3, text="ON", width=10, command=lambda: [
     input_volt(), input_current(), allOutput()])
@@ -280,7 +372,13 @@ ON.grid(row=5, column=0, columnspan=2, sticky=W)
 OFF = tk.Button(frame3, text="OFF", width=10, command=lambda: [OFF_volt(), OFF_current()])
 OFF.grid(row=5, column=1, columnspan=2, sticky=E)
 
-print init_i2c()
+# read_deckstatus()
+# mp.i2c_write(0x55, [0x05])
+# deckstatus = mp.i2c_read(0x55)
+# print deckstatus
 
+# read_partnumber()
+
+mp.close_i2c()
 
 root.mainloop()
