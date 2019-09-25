@@ -25,7 +25,8 @@ for p in ports:
         print(x)
 set_baudrate = 9600
 set_timeout = 1
-port = portArr[0]
+# global port
+# port = portArr[0]
 portValues = portArr[:]
 
 
@@ -34,7 +35,7 @@ def read_partnumber():
     mp.i2c_write(0x55, [0x80])
     partnumber = mp.i2c_read8bytes(0x55)
     print partnumber
-    # print mp.i2c_read8bytes(0x55)
+    print mp.i2c_read8bytes(0x55)
     partNum = Entry(frame2)
     partNum.insert(1, partnumber)
     partNum.grid(row=10, column=2)
@@ -55,7 +56,8 @@ def write_partnumber(partnumber="00000000"):
     writeout_to_reg = reg+ord_partnumber
     print writeout_to_reg
 
-    ret = mp.i2c_write(0x55, writeout_to_reg)
+    ret = mp.i2c_write(0x55, ord_partnumber)
+    print ret
     return(ret)
 
 # def write_partnumber(partnumber="0x00"):
@@ -168,9 +170,12 @@ def read_heater_status():  # need to check with designer what are in reg 8? caus
 
 def read_temp():
     mp.init_i2c()
-    mp.i2c_write(0x55, [0x24, 0x25])
+    m = mp.i2c_write(0x48, [0x55])
+    print m
     temp = mp.i2c_read8bytes(0x55)
+    print('############################')
     print temp
+    print('############################')
     # print mp.i2c_read8bytes(0x55)
     temp1 = Entry(frame1)
     temp1.insert(1, temp)
@@ -180,7 +185,7 @@ def read_temp():
     temp2.grid(row=9, column=1)
 
     mp.close_i2c()
-    temerature = int(((struct.unpack('1B', temp1)[0]/256.0)*100.0)+0.5)
+    # temerature = int(((struct.unpack('1B', temp1)[0]/256.0)*100.0)+0.5)
     return(temp)
 
 
@@ -189,6 +194,7 @@ def delete():
 
 
 def input_volt(command="VSET"):
+    port = func()
     powerPort = serial.Serial(port=port, baudrate=set_baudrate, timeout=set_timeout)
     v_in = E1.get()
     if v_in == '':
@@ -201,6 +207,7 @@ def input_volt(command="VSET"):
 
 
 def input_current(command="ISET"):
+    port = func()
     powerPort = serial.Serial(port=port, baudrate=set_baudrate, timeout=set_timeout)
     v_in = E2.get()
     if v_in == '':
@@ -213,6 +220,7 @@ def input_current(command="ISET"):
 
 
 def allOutput(command="VSET?"):
+    port = func()
     powerPort = serial.Serial(port=port, baudrate=set_baudrate, timeout=set_timeout)
     powerPort.write(command+"\r\n".encode())
     voltDisplay = powerPort.read(100)
@@ -250,6 +258,25 @@ def OFF_current(command="OUT0"):
     currentDisplay = powerPort.read(100)
     powerPort.close()
     return currentDisplay
+
+
+def func():
+    getPort = comboExample.get()
+    set_Port(getPort)
+
+    port = getPort
+    return port
+
+
+def set_Port(setport):
+    print('test function set port')
+    print setport
+    return setport
+
+
+def show_global_port(port):
+    print('show port')
+    print func()
 
 
 root = tk.Tk()
@@ -350,8 +377,14 @@ Get = Button(frame2, text="GET", width=10, command=lambda: [read_partnumber(), r
 Get.grid(row=12, column=1, columnspan=2, sticky=W)
 
 PowerSupply = Label(frame3, text="Power Supply", relief=GROOVE).grid(row=0)
-# comboExample = ttk.Combobox(frame3, values=portValues)
-# comboExample.grid(row=0, column=1, columnspan=1, sticky=W+E+N+S)
+comboExample = ttk.Combobox(frame3, values=portValues)
+comboExample.grid(row=0, column=1, columnspan=1, sticky=W+E+N+S)
+b = Button(frame3, text="Select This port", command=func)
+b.grid(column=1, row=1)
+
+b1 = Button(frame3, text="youuuuuuuu", command=lambda: show_global_port(port))
+b1.grid(column=2, row=1)
+
 Label(frame3, text="Supply ID : ").grid(row=1)
 tk.Label(frame3, text="Voltage").grid(row=2)
 tk.Label(frame3, text="Current").grid(row=3)
@@ -376,8 +409,8 @@ OFF.grid(row=5, column=1, columnspan=2, sticky=E)
 # mp.i2c_write(0x55, [0x05])
 # deckstatus = mp.i2c_read(0x55)
 # print deckstatus
-
 # read_partnumber()
+port = func()
 
 mp.close_i2c()
 
